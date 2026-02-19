@@ -17,6 +17,9 @@ webpush.setVapidDetails(
 let offers = [];
 let subscriptions = [];
 
+app.get('/', (req, res) => {
+  res.send('Ahora sí estoy Backend');
+});
 /* ============================= */
 /* 🔔 SUSCRIPCIÓN PUSH */
 /* ============================= */
@@ -82,3 +85,4 @@ const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
+
