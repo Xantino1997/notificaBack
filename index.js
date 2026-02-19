@@ -1,42 +1,44 @@
 const express = require("express");
 const cors = require("cors");
 const webpush = require("web-push");
+const fs = require("fs");
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 🔐 CONFIGURAR VAPID
 webpush.setVapidDetails(
   "mailto:ala282016@gmail.com",
   "BK3n7dfdiswYMFMVkn_5dryRWFpAwtKoa-f-UCwSgMoMv3DfC-_2aOzD3XKr5K3Vav1glAslwABG3BO5LDySWj8",
   "0FIltAZbsB4C3m3MFkbFcYiBY9b-6QSWq4ejk6f_PyI"
 );
 
-// 📦 Almacenamiento en memoria
-let offers = [];
-let subscriptions = [];
+const SUBS_FILE = "/tmp/subscriptions.json";
 
-app.get('/', (req, res) => {
-  res.send('Ahora sí estoy Backend');
-});
-/* ============================= */
-/* 🔔 SUSCRIPCIÓN PUSH */
-/* ============================= */
+const loadSubscriptions = () => {
+  try {
+    if (fs.existsSync(SUBS_FILE)) {
+      return JSON.parse(fs.readFileSync(SUBS_FILE, "utf8"));
+    }
+  } catch (e) {}
+  return [];
+};
+
+const saveSubscriptions = (subs) => {
+  fs.writeFileSync(SUBS_FILE, JSON.stringify(subs));
+};
+
+let offers = [];
+let subscriptions = loadSubscriptions();
+
 app.post("/api/subscribe", (req, res) => {
   const subscription = req.body;
-
   subscriptions.push(subscription);
-
-  console.log("Nueva suscripción recibida");
+  saveSubscriptions(subscriptions);
   console.log("Total suscripciones:", subscriptions.length);
-
   res.status(201).json({ message: "Suscripción guardada" });
 });
 
-/* ============================= */
-/* 📌 CREAR OFERTA */
-/* ============================= */
 app.post("/api/offers", async (req, res) => {
   const { title, price } = req.body;
 
@@ -53,15 +55,13 @@ app.post("/api/offers", async (req, res) => {
 
   offers.push(newOffer);
 
-  console.log("Oferta creada:", newOffer);
-  console.log("Total ofertas:", offers.length);
-
-  // 🔔 Enviar push
   const payload = JSON.stringify({
     title: "Nueva oferta 🔥",
     body: `${title} - $${price}`,
+    url: "https://notifica-front.vercel.app/offers", // 👈 URL incluida
   });
 
+  subscriptions = loadSubscriptions(); // recargar por si el server reinició
   for (const sub of subscriptions) {
     try {
       await webpush.sendNotification(sub, payload);
@@ -73,16 +73,11 @@ app.post("/api/offers", async (req, res) => {
   res.status(201).json(newOffer);
 });
 
-/* ============================= */
-/* 📌 LISTAR OFERTAS */
-/* ============================= */
 app.get("/api/offers", (req, res) => {
   res.json(offers);
 });
 
-/* ============================= */
 const PORT = 5000;
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en el puerto ${PORT}`);
 });
-
